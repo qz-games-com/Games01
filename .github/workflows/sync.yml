@@ -1,13 +1,11 @@
 # .github/workflows/sync-upstream.yml
 on:
-
   workflow_dispatch:
-
   schedule:
     - cron: '*/5 * * * *'
 
 jobs:
-  build-upstream:
+  sync-upstream:
     runs-on: ubuntu-latest
     steps:
       - name: Check out your fork
@@ -20,15 +18,25 @@ jobs:
           git config user.name  "${{ github.actor }}"
           git config user.email "${{ github.actor }}@users.noreply.github.com"
 
-      - name: Add upstream remote
+      - name: Add & fetch upstream
         run: |
           git remote add upstream https://github.com/qz-games/Games01.git
           git fetch upstream
 
-      - name: Merge upstream into main
+      - name: Merge upstream into main only if there are new commits
         run: |
           git checkout main
-          git merge upstream/main --no-edit
 
-      - name: Push merge (optional)
-        run: git push origin main
+          # count commits on upstream/main not in HEAD
+          NEW=$(git rev-list --count HEAD..upstream/main)
+
+          if [ "$NEW" -eq 0 ]; then
+            echo "✅ No new commits upstream — skipping."
+            exit 0
+          fi
+
+          echo "🔄 $NEW new commit(s) on upstream — merging…"
+          git merge --no-edit upstream/main
+
+          echo "🚀 Pushing merged changes to origin/main"
+          git push origin main
